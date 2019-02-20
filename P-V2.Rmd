@@ -1,0 +1,475 @@
+White Wine Quality Analysis by Suliman Rashed
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(knitr)
+library(scales)
+library(dplyr)
+library(gridExtra)
+library(GGally)
+library(RColorBrewer)
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+df <- read.csv('wineQualityWhites.csv')
+```
+
+This dataset is public and available for research purposes only. </br>
+The link to the website is here: http://www3.dsi.uminho.pt/pcortez/wine/.
+<br/>Citation:
+P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
+
+```{r echo=FALSE}
+str(df)
+```
+ > The dataset has 13 variables and it's divided into two parts. First, the
+ physicochemical section with 11 variables. Second, the quality variable for the
+ score of the expert from 0 to 10. 
+ </br> To use the quality variable as classification, a factor version of this
+ variable is needed.
+ 
+```{r}
+df$quality.factor <- as.factor(df$quality)
+str(df)
+```
+
+# Univariate Plots Section
+
+```{r echo=FALSE, Univariate_Plots}
+summary(df)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots2}
+#to creat a function about histogram to help make grid plots faster
+grid.plot <- function(variable, dataframe, label.x)
+{
+  ggplot(aes_string(variable), data = dataframe) + 
+    geom_histogram(bins = 40) +
+    geom_vline(aes(xintercept = mean(variable)), color = 'blue') +
+    geom_vline(aes(xintercept = median(variable)), color = 'red') +
+    geom_vline(aes(xintercept = quantile(variable, 0.01)),
+               linetype = 2, color = 'orange') +
+    geom_vline(aes(xintercept = quantile(variable, 0.99)),
+               linetype = 2, color = 'orange') +
+    geom_vline(aes(xintercept = quantile(variable, 0.25)), linetype = 2) +
+    geom_vline(aes(xintercept = quantile(variable, 0.75)), linetype = 2) +
+    labs(x = label.x)
+}
+# cal the function to creat plots
+grid.p1 <- grid.plot(df$fixed.acidity, df, 'fixed.acidity')
+grid.p2 <- grid.plot(df$volatile.acidity, df, 'volatile.acidity')
+grid.p3 <- grid.plot(df$citric.acid, df, 'citric.acid')
+grid.p4 <- grid.plot(df$pH, df, 'pH')
+grid.p5 <- grid.plot(df$residual.sugar, df, 'residual.sugar')
+grid.p6 <- grid.plot(df$chlorides, df, 'chlorides')
+grid.p7 <- grid.plot(df$free.sulfur.dioxide, df, 'free.sulfur.dioxide')
+grid.p8 <- grid.plot(df$total.sulfur.dioxide, df, 'total.sulfur.dioxide')
+grid.p9 <- grid.plot(df$density, df, 'density')
+grid.p10 <- grid.plot(df$sulphates, df, 'sulphates')
+grid.p11 <- grid.plot(df$alcohol, df, 'alcohol')
+grid.p12 <- grid.plot(df$quality, df, 'quality')
+
+grid.arrange(grid.p1,grid.p2, grid.p3, grid.p4, grid.p5, grid.p6, grid.p7,
+             grid.p8, grid.p9, grid.p10, grid.p11, grid.p12, ncol = 4)
+
+```
+
+> To clarify these charts: </br>
+- Blue Line: Specify the median. </br>
+- Red Line: Specify the mean. </br>
+- Dashed Black Line: Specify the quantiles. </br>
+- Dashed Orange Line: Specify the percentile (0.01 & 0.99). </br>
+  We can see that all of these measures have a (almost) normal distribution and
+  some outliers but doesn't affect the distribution.
+
+ Since we have a categorical variable for `quality`, let's focus on divide it
+into 3 categorical specifications (A is the best & C is the worst).
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Univariate_Plots3}
+# creating a new variable (quality catagories) "A" between 10-8, "B" between 7-5
+# "C" between 4-0
+df$quality.catagories <- ifelse(df$quality >= 8, "A",
+                                ifelse(df$quality >= 5, "B",
+                                       ifelse(df$quality >= 0, "C",
+                                                            "Other")))
+```
+
+ After that, we will use one of these categorical specifications to draw plots
+with physicochemical variables to know the specifications of the best white wine.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Univariate_Plots31}
+ggplot(aes(df$quality.catagories), data = df) +
+  geom_histogram(stat = "count") 
+```
+
+Above is a histogram that plot the `qualit.catagories`.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots4}
+# creating subset data with quality catagory = A
+dfbest <- subset(df, quality.catagories == "A")
+#to creat a function about density plot to help make grid plots faster
+best.plots <- function(variable, label.x)
+{
+  ggplot(aes_string(variable), data = dfbest) + 
+    geom_density(fill = 'gray') +
+    geom_vline(aes(xintercept = mean(variable)), color = 'blue') +
+    geom_vline(aes(xintercept = median(variable)), color = 'red') +
+    geom_vline(aes(xintercept = quantile(variable, 0.01)), 
+               linetype = 2, color = 'orange') +
+    geom_vline(aes(xintercept = quantile(variable, 0.99)),
+               linetype = 2, color = 'orange') +
+    geom_vline(aes(xintercept = quantile(variable, 0.25)), linetype = 2) +
+    geom_vline(aes(xintercept = quantile(variable, 0.75)), linetype = 2) +
+    labs(x = label.x)
+}
+
+best.p1 <- best.plots(dfbest$fixed.acidity, 'fixed.acidity')
+best.p2 <- best.plots(dfbest$volatile.acidity, 'volatile.acidity')
+best.p3 <- best.plots(dfbest$citric.acid, 'citric.acid')
+best.p4 <- best.plots(dfbest$pH, 'pH')
+best.p5 <- best.plots(dfbest$residual.sugar, 'residual.sugar')
+best.p6 <- best.plots(dfbest$chlorides, 'chlorides')
+best.p7 <- best.plots(dfbest$free.sulfur.dioxide, 'free.sulfur.dioxide')
+best.p8 <- best.plots(dfbest$total.sulfur.dioxide, 'total.sulfur.dioxide')
+best.p9 <- best.plots(dfbest$density, 'density')
+best.p10 <- best.plots(dfbest$sulphates, 'sulphates')
+best.p11 <- best.plots(dfbest$alcohol, 'alcohol')
+
+grid.arrange(best.p1,best.p2, best.p3, best.p4, best.p5, best.p6, best.p7,
+             best.p8, best.p9, best.p10, best.p11, ncol = 4)
+
+```
+
+It appears that most of the features for the best wine showed a normal
+distribution except the `residual.sugar` and `alcohol`. Also there are some
+positive outliers in almost each of these specifications.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots5}
+#to creat a function about density plot to help make grid plots faster
+sugar.plots <- function(variable, dataframe, label.x)
+{
+  ggplot(aes_string(variable), data = dataframe) + 
+    geom_density(fill = 'gray') +
+    geom_vline(aes(xintercept = mean(variable)), color = 'blue') +
+    geom_vline(aes(xintercept = median(variable)), color = 'red') +
+    geom_vline(aes(xintercept = quantile(variable, 0.01)),
+               linetype = 2, color = 'orange') +
+    geom_vline(aes(xintercept = quantile(variable, 0.99)),
+               linetype = 2, color = 'orange') +
+    geom_vline(aes(xintercept = quantile(variable, 0.25)), linetype = 2) +
+    geom_vline(aes(xintercept = quantile(variable, 0.75)), linetype = 2) +
+    labs(x = label.x)
+}
+
+sugar.p1 <- sugar.plots(df$residual.sugar, df, 'residual.sugar')
+sugar.p2 <- sugar.plots(df$residual.sugar, df, 'residual.sugar log10') +
+  scale_x_log10()
+
+grid.arrange(sugar.p1, sugar.p2)
+```
+
+ As we can see there is a long tail in the first plot and most of the data are
+under 20. When we did Log10 on the second plots you can spot the difference
+clearly.
+
+
+# Univariate Analysis
+
+
+### What is the structure of your dataset?
+The dataset contains 13 variables (11 physicochemical variables, one categorical
+variable and one variable for indexing) and 4898 observations.
+The 11 physicochemical features are: `fixed.acidity`, `volatile.acidity`, 
+`citric.acid`, `residual.sugar`, `chlorides`, `free.sulfur.dioxide`, 
+`total.sulfur.dioxide`, `density` ,`pH`, `sulphates`, and `alcohol`. and all of
+them are numeric, while the remaining variable is `quality` and even when it is
+written with numbers but it represented as categorical since it is ratings by
+the experts.
+
+### What is/are the main feature(s) of interest in your dataset?
+The main feature is the `quality` variable since it represent the ratings of the
+experts.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+There is `chlorides`, `density`, and `alcohol`.
+
+### Did you create any new variables from existing variables in the dataset?
+Yes. `quality.catagorical` from `quality`.
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+In `residual.sugar` there was a long tail with most of the data were under 20.
+So I did a log 10 transformation on its x-axis to see the transformation and it
+was very clear.
+
+# Bivariate Plots Section
+
+
+```{r echo=FALSE, message=FALSE, Bivariate_Plots}
+
+# create subset for the data by removing X variable and quality (factor & catagories)
+tmpdata <- select(df, -X, -quality.factor, -quality.catagories)
+
+ggcorr(tmpdata, label = TRUE, label_size = 3, size = 4, layout.exp = 5,
+       hjust = 0.9, label_round = 2)
+
+```
+
+
+ We can see from the plots matrix above that the strongest correlation is 
+between `quality` and `alcohol` with (r=0.436). Also, we can spot that the
+correlation between `density` and `residual.sugar` is strong positive with
+(r=0.839) and `density` and `total.sulfur.dioxide` with (r=0.53). And in terms
+of negative correlation, the correlation between `density` and `alcohol` is 
+(r=-78), and between `density` and `quality` is (r=-0.307).
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots2}
+#to creat a function about box plot to help make grid plots faster
+boxPlots <- function(yvariable, dataframe, labs.y)
+{
+  ggplot(aes_string(x = df$quality.factor, y = yvariable, fill = df$quality.factor), data = dataframe) + 
+    geom_boxplot() +
+    ylim(quantile(yvariable, 0), quantile(yvariable, 0.99)) +
+    theme(legend.position = "none") +
+      labs(x = "quality.factor", y = labs.y)
+}
+# caling the function by each features to plot them
+box.p1 <- boxPlots(df$fixed.acidity, df, "fixed.acidity")
+box.p2 <- boxPlots(df$volatile.acidity, df, "volatile.acidity")
+box.p3 <- boxPlots(df$citric.acid, df, "citric.acid")
+box.p4 <- boxPlots(df$pH, df, "pH")
+box.p5 <- boxPlots(df$residual.sugar, df, "residual.sugar")
+box.p6 <- boxPlots(df$chlorides, df, "chlorides")
+box.p7 <- boxPlots(df$free.sulfur.dioxide, df, "free.sulfur.dioxide")
+box.p8 <- boxPlots(df$total.sulfur.dioxide, df, "total.sulfur.dioxide")
+box.p9 <- boxPlots(df$density, df, "density")
+box.p10 <- boxPlots(df$sulphates, df, "sulphates")
+box.p11 <- boxPlots(df$alcohol, df, "alcohol")
+
+grid.arrange(box.p1, box.p2, box.p3, box.p4, box.p5, box.p6, box.p7, box.p8, 
+             box.p9, box.p10, box.p11, ncol = 3)
+```
+
+ As we can see from the matrix box plots that there are two features that really
+affect the quality and the ratings of the wine. `alcohol` with a strong positive
+and `density` with a strong negative. Other features don't have that much effect
+as these two with `quality`. Let's focus on it.
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots3}
+grid.arrange(box.p9, box.p11)
+```
+
+From the `density` plot we can see that if the density is high we expect to 
+see the rating lower. On the other side, as long as the `alcohol` is high we
+expect the rating of the quality is high.
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots4}
+ggplot(aes(df$density, df$alcohol), data = df) +
+  geom_point(color = '#374B5E', alpha = 1/5, position = "jitter") +
+  ylim(quantile(df$alcohol, 0.1), quantile(df$alcohol, 0.99)) +
+  xlim(quantile(df$density, 0.1), quantile(df$density, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37')
+```
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots5}
+cat("r =", cor(df$density, df$alcohol))
+```
+
+
+Lets plot some of the other chimical features to see the relationship between them:
+
+##### density and residual.sugar
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots6}
+ggplot(aes(df$density, df$residual.sugar), data = df) +
+  geom_point(color = '#374B5E', alpha = 1/5, position = "jitter") +
+  ylim(quantile(df$residual.sugar, 0.1), quantile(df$residual.sugar, 0.99)) +
+  xlim(quantile(df$density, 0.1), quantile(df$density, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37')
+```
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots7}
+cat("r =", cor(df$density, df$residual.sugar))
+```
+
+##### density and total.sulfur.dioxide
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots8}
+ggplot(aes(df$density, df$total.sulfur.dioxide), data = df) +
+  geom_point(color = '#374B5E', alpha = 1/5, position = "jitter") +
+  ylim(quantile(df$total.sulfur.dioxide, 0.1),
+       quantile(df$total.sulfur.dioxide, 0.99)) +
+  xlim(quantile(df$density, 0.1), quantile(df$density, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37')
+```
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots9}
+cat("r =", cor(df$density, df$total.sulfur.dioxide))
+```
+
+##### alcohol and residual.sugar
+
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots10}
+ggplot(aes(df$alcohol, df$residual.sugar), data = df) +
+  geom_point(color = '#374B5E', alpha = 1/5, position = "jitter") +
+  ylim(quantile(df$residual.sugar, 0.1), quantile(df$residual.sugar, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37')
+```
+
+```{r echo=FALSE, message=FALSE,warning=FALSE, Bivariate_Plots11}
+cat("r =", cor(df$alcohol, df$residual.sugar))
+```
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+> We saw above that there is a strong correlation between `quality` and `alcohol`
+with (r=0.436). Also, we saw that the correlation between `density` and
+`residual.sugar` is strong positive with(r=0.839) and `density` and
+`total.sulfur.dioxide` with (r=0.53). And in terms of negative correlation,
+the correlation between `density` and `alcohol` is (r=-78), and between `density`
+and `quality` is (r=-0.307).
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+> Yes. there was between `alcohol` and `density` and between `residual.sugar` and
+`density` also.
+
+### What was the strongest relationship you found?
+> It was between `residual.sugar` and `density` with (r = 0.839).
+
+# Multivariate Plots Section
+
+
+```{r echo=FALSE,message=FALSE, warning=FALSE, Multivariate_Plots}
+ggplot(aes(df$density, df$alcohol, color = df$quality.catagories), data = df) +
+  geom_point(stat = "summary", fun.y = "median", alpha = 1) +
+  ylim(quantile(df$alcohol, 0.1), quantile(df$alcohol, 0.99)) +
+  xlim(quantile(df$density, 0.1), quantile(df$density, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37') +
+  labs(title = "Median of Alcohol for Density By Quality")
+```
+
+With a strong negative relationship between `alcohol` and `density`, we can see
+from the plot above that the best wine tend to have much alcohol, and the worst
+tend to have higher density.
+
+```{r echo=FALSE,message=FALSE, warning=FALSE, Multivariate_Plots2}
+dprc <- ggplot(aes((2*(df$density/2)), df$residual.sugar, color = df$quality.catagories), data = df) +
+  geom_jitter(stat = "summary", fun.y = "median") +
+  ylim(min(df$residual.sugar), quantile(df$residual.sugar, 0.99)) +
+  xlim(min(df$density), quantile(df$density, 0.99)) 
+
+dpra <- ggplot(aes((2*(df$density/2)), df$residual.sugar, color = df$alcohol), data = df) +
+  geom_jitter(stat = "summary", fun.y = "median") +
+  ylim(min(df$residual.sugar), quantile(df$residual.sugar, 0.99)) +
+  xlim(min(df$density), quantile(df$density, 0.99))
+
+grid.arrange(dprc, dpra, ncol = 2)
+```
+
+With holding `density` in both plots, we can see in the left plot that a better
+wine have more residual sugar. On the right side we can see also that an 
+alcoholic wine have more residual sugar.
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+> We can see that the best wine tend to have much alcohol, and the worst tend to
+have higher density. ALso, we can see that a better wine have more residual 
+sugar and an alcoholic wine have more residual sugar.
+
+### Were there any interesting or surprising interactions between features?
+> No, I didn't see anything.
+
+------
+
+# Final Plots and Summary
+
+
+### Plot One
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_One}
+box.p9 +
+  labs(title = "Density By Quality") +
+  xlab("Quality") +
+  ylab("Density (g / cm^3)")
+```
+
+### Description One
+Since the correlation between `density` and `quality` is negative with 
+(r = -0.3071233) we can see from the plot above that when the density is high we
+expect to see the quality to be low.
+
+### Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+ggplot(aes(df$density, df$residual.sugar), data = df) +
+  geom_point(color = '#374B5E', alpha = 1/5, position = "jitter") +
+  ylim(quantile(df$residual.sugar, 0.1), quantile(df$residual.sugar, 0.99)) +
+  xlim(quantile(df$density, 0.1), quantile(df$density, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37') +
+  labs(title = "Residual Sugar By Density") +
+  xlab("Density (g / cm^3)") +
+  ylab("Residual Sugar (g / dm^3)")
+```
+
+### Description Two
+
+We can spot from the plot that the correlation between `residual.sugar` and 
+`density` is string positive with (r = 0.838). So as long the residual sugar is
+heigh we excpect the density to be higher.
+
+### Plot Three
+```{r echo=FALSE, message=FALSE, warning=FALSE,Plot_Three}
+ggplot(aes(df$density, df$alcohol, color = df$quality.catagories), data = df) +
+  geom_point(stat = "summary", fun.y = "median", alpha = 1) +
+  ylim(quantile(df$alcohol, 0.1), quantile(df$alcohol, 0.99)) +
+  xlim(quantile(df$density, 0.1), quantile(df$density, 0.99)) +
+  geom_smooth(method = 'lm', color = '#061F37') +
+  labs(title = "Median of Alcohol for Density By Quality") +
+  xlab("Density (g/ml)") +
+  ylab("Alcohol (%)") +
+  guides(color=guide_legend(title="Quality"))
+```
+
+### Description Three
+
+With a strong negative relationship between `alcohol` and `density` 
+(r = -0.7801376), we can see from the plot above that the best wine tend to have
+much alcohol, and the worst tend to have higher density.
+
+------
+
+# Reflection
+
+It was an interesting project and an interesting dataset to investigate it.
+The gradation of the project was fascinating, starts from univariate to bivariate
+to multivariate. Knowing which chemical property has the highest effect on wine's
+quality. Also between the properties itself and how much that have an effect on 
+the quality in the end. </br>
+What I think it would give more accurate is to have more observations \ wines to
+test since we don't have any wines that rated with 10 \ 10. </br>
+In the future, we could implement these modules on other sets, maybe the red
+wines that in the description of this set. Also, we may go deeper into this data 
+set and explore more relation between the chemical properties.
